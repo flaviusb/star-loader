@@ -1,0 +1,10 @@
+[package]
+name = "star-loader"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[[bin]]
+name = "star-exec"
+path = "bin/star_exec.rs"

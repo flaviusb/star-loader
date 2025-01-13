@@ -1,0 +1,335 @@
+###
+
+fallible allocators, cancellable allocators, async allocators, yielding allocators, backpressure, functorial/applicative allocators?, (both alloc and free)
+pointer compression / indexing, arenas, ...
+support for 2-phase / 'reserve ticket' stuff, for eg 'alloc from DMA'
+
+
+https://lwn.net/Articles/679310/
+https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/binfmt-misc.rst
+https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/mono.rst
+https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/java.rst
+
+```bash
+sudo mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc
+#echo ":name:type:offset:magic:mask:interpreter:flags" > /proc/sys/fs/binfmt_misc/register
+echo ":star:E::★::/bin/star-exec:POC" > /proc/sys/fs/binfmt_misc/register
+```
+
+★ = 0xe29885
+✩ = 0xe29ca9
+
+Approach: Haskell star-exec, star-compiletime-linker, star-loadtime-linker, star-loader, star-runtime-linker-and-loader, star-assembler; get them done fast enough to outrun the quicksand etc. Then build new version of themselves in star-assembler, with the catch that we also need to be able to make elf-stub-contained versions of star-loader, and a 'fully static star' version of 'star-loadtime-linker', and a 'no runtime loading and linking' version of star-runtime-linker-and-loader.
+
+https://duriansoftware.com/joe/type-erased-generic-functions-for-c:-a-modest-non-proposal
+https://yosefk.com/blog/i-want-a-struct-linker.html
+
+Build time vs run time
+- Macros via staging (at build time)
+
+Overlay ABI to allow for languages to have their own way of doing things 'on top'
+
+the struct linker idea can be taken further
+fixup directives and fixup locations, to allow for more than just 'add cases to a struct or enum'.
+Should be able to use it for 'semi-generic' functions etc as well - like, a kind of semi-monomorphisation when added to some complicated lto / linker scripts
+dlopen become difficult though - maybe do something with 'late initialisation' or something, so you can mark sections to be linked and runnable after some stuff has been done, and then instead of dlopen you can use 'add link' and then 'make into executable image, and potentially bring into address space etc', with some kind of 'here is how we fixup symbols for that, and where we throw a condition if trying to jump into an unrealised sub-image'
+
+stack discipline fn
+coro
+inside out
+
+function and coroutine and closure pointers that are callable / etc
+
+functorial modules
+
+Something about symbol/name lookup, versions, functoriality, fixups
+Something about runtime type information / etc
+
+A way to do 'rich generics' which is slower / etc, goes through vtables and name mangling and  extra linker shit etc
+→ This can possibly be on a 'per language' basis, require an extra runtime, etc etc
+→ You can have multiple in a single .so
+→ You can also have the parts of the .so which don't rely on that, which you can use 'raw'
+→ Something something Meta-Object Protocol
+
+Would need Rust's borrow checker or equivalent though - can we do this with separate compilation like this?
+Or even a weaker thing, like a way to say 'you/we/they/same-as-whatever-x-does have to handle allocation/deallocation'
+Or a stronger thing, like 'here is our semi-ring adjoint modal logic'
+Destructors
+Signals
+Async
+
+Learn lessons from Windows SEH and CL 'Conditions' and non-local return and 'DWARF' and 'gcc personalities'
+
+
+fixed size, may be available in hardware, otherwise software: uN, iN, flN, fiN, bool, fmN_M (the 'tensor of small floats which share a mantissa' representation)
+platform specific size: usize, isize, item_pointer, function_pointer, closure_pointer, coroutine_pointer
+sum (eg discriminated union), product (eg struct), 'multiple interpretation' (eg union)
+
+executable image, shared object, object, .a, ... can we do all of them as header, section* {header, data, index}, index..., with different headers and sections and so on, but overall the same logical structure?
+
+[T; N], [T; N, M, ...], +-*/<>=∨∧¬≠ pow_n log_n root_n -> 
+on stack, on heap
+in, out, inout, multiple return
+inner name:outer name for args; either one or both can be _ for positional
+args can be ? (for optional), * (for zero or more), or + (for one or more)
+
+Way to do binary layout of objects
+Way to do 'generic parameters' which can be preconditions etc
+Look up what swift can do for optional arguments, varargs, varstructs, default args, constructors, destructors, getters and setters, runtime and compile time introspection (not just of types, names symbols, but also things like memory/allocation, pages, etc)
+
+
+lua alike for embedding, with ... as embedder ABI, plus meta-lua alike for staging metaprogramming / exposing more stuff at the ABI level
+or maybe a Dylan or Rebol or Io or Ioke or Factor or Icon or Unicon or Mozart/Oz or Potion or AppleScript/HyperTalk or Visual Basic or Delphi/Object Pascal or...
+
+how to add MOP/etc, runtime, ...
+
+---
+
+linker as part of metaprogramming
+separate module compilation, but also lto
+
+---
+
+ABI has two parts
+independent
+instruction set+OS+etc specific part (eg x86_64/linux, wasm/wasi, wasm/web, 68k/classicmacos, x86_64/win10)
+
+The container format allows you to have sections by 'instruction set+OS+etc specific part', so you can have eg different versions of a named thing depending on that
+But also, it can be by vm bytecode (for some particular VM), wasm, programming language source code for some particular language, ...
+You could have the language runtime + embedded language interpreter as native code section, then the language code in a language code section, and load libraries etc of that language code through linking and loading
+
+assembler:
+
+sections
+names
+
+types: native code also specifies instruction set and operating system
+
+---
+
+names
+
+data type definitions - partials are here too, and fixups can reference this and other imported data type definitions etc for fixups
+function (etc - eg coro, closure, etc) signatures / entrypoints - need to be a HAMT or etc in the image, something that is fast to seek/search/iterate
+linkage stuff - fixups, partials
+
+
+maybe move signatures over to data type definitions, and then have 'preinitialised/constant' and 'entrypoint' hamts?
+for both data type definitions and function etc signatures
+
+no, have 'data type definitions' which includes things like 'types of functions' etc as well obviously; then also have 'callsites' and 'data sections / labels for where data is / etc' and 'coroutine sites' etc which are named and have a type defined in the 'data type definitions'.
+sections:
+- data type definitions
+- callsite/cocallsite(eg callsite plus state site)/label/etcs (names, reference to data type definitions, reference to locations/s in loadable-code-as-such/loadable-preinitialised-data-sections-as-such section)
+- loadable-code-as-such
+- initialisers-of-various-kinds
+- loadable-preinitialised-data-sections-as-such
+- reactive/dataflow/streaming/pushpull/etc section
+- debugging information
+- bundled interpretable source code (including language indicator information)
+- marked 'runtime' section, which is similar to but distinct from a loadable-code-as-such section or an initialisers-of-various-kinds section
+- fixups section
+- fixups, data type definitions, and loadable code as such can mark that it depends on initialisers-of-various-kinds/runtimes/bundled interpretable source code etc; so you can generate a .so for my lualike (with the nice methods), but also you can generate a .so for my lualike code, with compile time lualike code to define what the exported symbols etc are, so you get them as nice methods etc in the file itself; but they just won't 'work' until the dependencies are run etc
+
+names for things are binary blobs of the form length (as some kind of uleb or vlq, in bits):value.
+
+And when you try to cross call etc you look up via the name and signature
+
+different stack disciplines for function calls
+asm literal (by ISA) etc
+but also ... stack machine shit
+eg word $x -- int int -> string int bool ⦃on stack $z at location $a⦄
+
+sizes, ...
+
+loads, stores, jumps, calls (stack discipline etc), cocalls (stack discipline plus also state machine for yields), call with environment, environment capture, 
+
+inner/outer/both inner and outer/external, namespaces, 'direct binding to a specific file', 'pure signature' eg an 'interface .so' to typecheck etc against but which does not have the loadable code in it - can be used for eg having an 'interface' to load a library against and 'just use' as ~normal (though fixups become maybe an issue - need to think about dependencies)
+
+not 'static linking' vs 'dynamic linking' vs 'dload', but rather 'compile time linking' (consolidation into a single file and running fixups etc on the file itself) vs 'load time linking' (star-exec reads dependencies, and reads in more files, and runs the fixups on the process image) vs 'run time linking' (the program itself reaches out to ...) in the 'staged programming' sense; initialiser sections, dependencies, and runtimes also add more layers to this
+
+for the various loadable code sections: ISA (plus family, version, features), platform (eg kernel version dependencies, underlying runtime version dependencies), 'style' (eg fastcall, ccall, pcall, gnu) - for some of these, we need ∧∨¬ (plus features) and you provide a selector that gets matched against
+
+%emit {
+  %index
+  %section blah
+  %padding
+  %section blah
+  %section blah
+  %section blah
+}
+
+---
+
+Things needed
+
+initial haskell (or etc) datastructure representing the image ⇆ binary and text representations
+- this also includes quite a bit more than might be apparent, as the text rep of various of the ISA code parts in various sections are in assembly
+haskell functions to eg load segements, run fixups, etc
+a haskell program to use as the initial star-exec for
+
+```bash
+sudo mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc
+echo ":star:E::★::/bin/star-exec:POC" > /proc/sys/fs/binfmt_misc/register
+```
+
+
+---
+
+function def
+  %asm
+  %call $name
+  or
+  %parts of the argument packing that need done
+  %no-pack-call $name
+end
+
+coro
+
+closure
+coclosure
+trampoline
+signal/dataflow/etc variable (pull, push, sync, async, etc)
+lvars
+generic functions / selectors / etc
+delegation
+aliases
+first class labels (both ways), like the whole 'path' thing from Swift
+vtables
+prototypal classes, classical oop classes, MOP, etc
+
+threads...
+threadlocals...
+
+... handlers for signals
+
+data structure declaration
+bits, padding, bitarrays, etc
+pointer
+sum, product, coproduct, first class label, ...
+bitstealing made legal
+
+fixups for eg dstructs (eg generate linker stuff too)
+
+names have
+modules/scopes:name.(arg_name:arg_type:specifiers)*..version
+
+The various ways to implement 'classes', and how to layer 'language ABI' over the top, like a better version of the C++ name mangling to put it on top of the C ABI.
+
+---
+
+Maybe:
+- define a way to define layout + ~interpretation
+flat [] with dimension/s, pointer, direct incorporation, stride, alignment+padding, 'ordering' (eg rows, columns, morton, z, etc)
+generic type (when inside a scope where a thing is generic, ...; but you can directly use pointing and so on, as they don't depend on layout), 'unknown layout'
+sum (discriminated union or labelled sum), product (tuple or struct), union (eg 'it could be one of these things, who knows?' - the 'one of these I guess' quantifier)
+function, closure, environment (related to closure, eg the capture), coroutine, state-machine (related to the coroutine), coclosure (a closure that can yield, with a state and an environment)
+(inner function, inner closure, inner coro, inner co-closure, etc etc; as well as the way to do 'escaping' eg downward funargs of these, trampolines, tail calls, ...)
+how to do 'const sections', embedded data that can be exported with a name etc
+
+unknown with size T and alignment U
+
+controls for heap, stack, 'MMIO'/etc
+
+all names are either
+(with word size x) a u16 of the length followed by that many words of bits, written length:contents. The length is a part of the name; zero padding is significant. Eg 1:0, 2:0, 3:0 etc are all different names.
+or some tbd text representation
+Namespaces exist and can be nested etc. Namespaces are written with a '.', so 1:a2.2:fff2 is a name, which is distinct from eg 1:fe.2:fff2
+
+---
+
+Defining 'shapes'
+Defining what signatures result in what kind of stack+register definition (where signatures involve passing in/out shapes etc)
+The 'generics' stuff
+Names (as len:binary)
+External dictionaries that let you have multiple 'human-readable' keys for names, so you can do bidirectional lookup (though it is many to one, as in many human readible ways to refer to any given name, but each human readible way can only correspond to a single name)
+Namespaces, and also maybe scopes
+Fixups (both 'into' and 'out of', eg for dstruct definition and dstruct use, but more general)
+(Other linker stuff, including static vs dynamic vs runtime eg dload)
+
+---
+
+callbacks
+
+get
+set
+call
+
+get_function(name) → a function pointer for the thing
+can use generics for ...
+
+monomorphisation via ~currying/~partial application - eg you can fix some of the 'generics' and then generate that. And you can choose it, as it will have a different signature.
+
+---
+
+'interfaces' implemented by a generic T can just be generic structs, eg
+
+struct Action«T» {
+  do_it: *(fn (T, State) -> Fallible«State, ActionErr»),
+  is_doable: *(fn (T, State) -> bool),
+}
+
+struct Container«Outer, Inner» {
+  map: *(fn (Outer, *(fn (Inner) -> Inner)) -> Outer),
+  get: *(fn (Outer, usize) -> Inner),
+}
+
+const struct List_vtable«T» {
+  mapcar: *(fn (List«T», *(fn (T) -> T)) -> List«T») = *list::mapcar,
+  car: *(fn (List«T») -> Option«T») = *list::car,
+  cdr: *(fn (List«T») -> List«T») = *list::cdr,
+  cons: *(fn (T, List«T») -> List«T») = *list::cons,
+}
+
+enum List«T» {
+  Nil,
+  Cons(*T, *List«T»),
+}
+
+fn operating_on_containers«A, T: Container«T, A»»(T) -> A
+called as
+operating_on_containers«bool, List«bool»: List_vtable«bool».mapcar⇒Container«List«bool», bool».map»(a)
+
+struct Action { ... }
+
+fn foo«T»(it: T, vtable: Container«T, Action») { //List doesn't actually 'show up' in the signature here (other than as 'T'), as it is dealt with by passing in the 'here is a vtable object for as-if T was a Container'
+  if let Some(third) = vtable.get(it, 3) {
+    ...
+  } else {
+    ...
+  }
+}
+
+fn get_from_list«T»(it: List«T», which: usize) -> Option«T» {
+  if which == 0 {
+    return List_vtable«T».car(it);
+  } else {
+    return get_from_list«T»(List_vtable«T».cdr(it));
+  }
+}
+
+let list_as_container«T» = Container«List«T», T» {
+  map: List_vtable«T».mapcar,
+  get: *get_from_list,
+};
+
+let g = foo(*list, list_as_container);
+
+Container«List«T», T».map = List«T».mapcar;
+Something about ???/fixed
+
+needs to be a way to say that the struct List«T» is 'the same' as the data it is 'for' - in this case, the enum List«T»
+like, a way to pass around the enum, but to have the struct as a const that is there whenever you need it from the enum
+yes, I am just redescribing a from-first-principles vtables...
+or maybe not... like, the thing does not need to be passed in when you non-generically know the thing, only when it is generic and so you don't know it... the equivalent of 'yes, this does implement this interface' type stuff...
+
+###
+
+https://mastodon.social/@flaviusb/113444815282533808
+
++
+
+Memory: Ram, Rom, file, stream, disk...
+cells with sizes and addresses for all except stream; stream is packets with size?
+
+
