@@ -262,6 +262,26 @@ monomorphisation via ~currying/~partial application - eg you can fix some of the
 
 ---
 
+coro/yield/async/fn/tail call/mutual/iterator/dataflow?/□◊/concatenative-word/closure/... thing: straight line code for various structured forms of non-straightness
+*must* be able to deal with fallibility, cancelability
+reentrancy becomes a way more complicated thing
+want to be able to type non-reentrancy
+
+stack and typing discipline
+become and arenas
+
+future
+return
+yield
+next
+
+---
+
+
+
+---
+
+
 'interfaces' implemented by a generic T can just be generic structs, eg
 
 struct Action«T» {
