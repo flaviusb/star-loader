@@ -4,6 +4,7 @@ fallible allocators, cancellable allocators, async allocators, yielding allocato
 pointer compression / indexing, arenas, ...
 support for 2-phase / 'reserve ticket' stuff, for eg 'alloc from DMA'
 
+file format needs three variants: index-at-front, index-at-end, and index-somewhere; index-at-front is the nicest, index-at-end is okay and there so that you can put other stuff at the front, index-somewhere is gross and to be avoided, but is there so that you can put the so/exe in a file that needs to have stuff at the front and at the end. 'index-somewhere' is inspired by zip.
 
 https://lwn.net/Articles/679310/
 https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/binfmt-misc.rst
@@ -148,16 +149,48 @@ inner/outer/both inner and outer/external, namespaces, 'direct binding to a spec
 
 not 'static linking' vs 'dynamic linking' vs 'dload', but rather 'compile time linking' (consolidation into a single file and running fixups etc on the file itself) vs 'load time linking' (star-exec reads dependencies, and reads in more files, and runs the fixups on the process image) vs 'run time linking' (the program itself reaches out to ...) in the 'staged programming' sense; initialiser sections, dependencies, and runtimes also add more layers to this
 
-for the various loadable code sections: ISA (plus family, version, features), platform (eg kernel version dependencies, underlying runtime version dependencies), 'style' (eg fastcall, ccall, pcall, gnu) - for some of these, we need ∧∨¬ (plus features) and you provide a selector that gets matched against
+maybe we need page instructions and etc as well - eg to make this section a small wrx page, whereas these other sections are large rx pages and this one is a large rw page
 
+for the various loadable code sections: ISA (plus family, version, features), platform (eg kernel version dependencies, underlying runtime version dependencies), 'style' (eg fastcall, ccall, pcall, gnu) - for some of these, we need ∧∨¬ (plus features) and you provide a selector that gets matched against
 %emit {
-  %index
+  %index first
   %section blah
-  %padding
+  %padding to next page alignment
   %section blah
   %section blah
   %section blah
 }
+
+%emit {
+  %zeros to mmmmmmm //or %zeros num nnnnnnn
+  %section blah
+  %padding to 64 bit alignment
+  %section blah
+  %section blah
+  %section blah
+  %zeros to nnnnnnn //or %zeros num nnnnnnn
+  %index-last
+}
+
+%emit {
+  %zeros to mmmmmmm //or %zeros num nnnnnnn
+  %section blah
+  %padding to 1024 byte alignment
+  %section blah
+  %section blah
+  %section blah
+  %zeros to nnnnnnn //or %zeros num nnnnnnn
+  %index-middle
+  %zeros to ppppppp //or %zeros num nnnnnnn
+}
+
+%section name: blah, type: hashtable {
+}
+
+%section name: blah, type: linear-code, isa: x86_64, cc: funcall {
+}
+
+section location - index, file location, process image location, or ???
 
 ---
 
@@ -220,7 +253,7 @@ The various ways to implement 'classes', and how to layer 'language ABI' over th
 
 Maybe:
 - define a way to define layout + ~interpretation
-flat [] with dimension/s, pointer, direct incorporation, stride, alignment+padding, 'ordering' (eg rows, columns, morton, z, etc)
+flat [] with dimension/s, pointer, direct incorporation, stride, alignment+padding, 'ordering' (eg row major, column major, (etc for ijkl-etc, where for n dimensions you have ), morton, z, bitplane, banked, etc)
 generic type (when inside a scope where a thing is generic, ...; but you can directly use pointing and so on, as they don't depend on layout), 'unknown layout'
 sum (discriminated union or labelled sum), product (tuple or struct), union (eg 'it could be one of these things, who knows?' - the 'one of these I guess' quantifier)
 function, closure, environment (related to closure, eg the capture), coroutine, state-machine (related to the coroutine), coclosure (a closure that can yield, with a state and an environment)
@@ -277,7 +310,15 @@ next
 
 ---
 
+---
 
+Type definition: Name or _num, generics, signature, representation (could be just ISA+ABI, could be something else like a literal representation)
+
+Actual thing definition: Name or _num, type (from Type definition), location, extent
+
+
+→ A function definition is just an actual thing with the type of a function
+→ A 'data definition' is just an actual thing with the type of data
 
 ---
 
@@ -347,9 +388,47 @@ or maybe not... like, the thing does not need to be passed in when you non-gener
 
 https://mastodon.social/@flaviusb/113444815282533808
 
+The key is this https://docs.werwolv.net/pattern-language ImHex pattern language as the seed for a general description language that can be used to build assemblers/disassemblers; plugging in to my 'ISA simulator construction kit' as a generation target for the assembers/disassemblers.
+
+And then macroassembly stuff can be done librarywise by importing/composing together more things in this language.
+The question is whether I can do this in a 'the view from the left' type way and/or a datalog-y way and/or a levy# like way all living in the positively-typed/non-computational fragment.
+
 +
 
 Memory: Ram, Rom, file, stream, disk...
 cells with sizes and addresses for all except stream; stream is packets with size?
 
+---
 
+
+As 'headers' - eg specifying names (and properties, and other related things that languages might need to query against for how to handle things) and ABI details.
+The specifics per-function - eg we don't need the C ABI conceit of 'universal rules for C header line to stack discipline / register stuff', as instead of providing a C header and then people have to parse it and figure it out, we provide the names/etc plus a machine fprmat for specifying those details. So eg you can have multiple calling conventions exposed within one interface, and your language can decide on its own within-language calling convention, but still generate reasonable code to call other language functions etc.
+
+(ijk-permutation is the general way to talk about row major, column major, etc when dealing with n dimensions)
+
+The abstract way: [] (and stride/sparsity/ijk-permutation/order(eg morton/z, normal, other)), size, T, ∀∃ıλ etc, ∧∨¬∪→←∈∋, as well as ~primitives like uN, iN, fN, and the various complexities around pointer and usize/iseze, etc
+The concrete way: what named things are packed where and how, which registers are fucked with in which way, how the stack or stacks are manipulated, thread locals, etc etc (specifications per ISA)
+Eg
+
+ISA has registers {sp, rx, mx, rg, r1, r2, r3, ...}...
+- registers clobbered
+- registers untouched
+- registers used to pass things in
+- registers used to pass thigns out
+ISA has stack/stacks
+- how to get, push, pop, check, etc stack or stacks (as-arch, stack-pointer-register: $reg; grow-direction: $up-or-down; red-zone: $val-or-NA; alloc-more-stack: $details, call-routine $personality)
+
+
+---
+
+Just headers.
+Headers plus the code the headers are for with interfaces only exterior.
+Headers plus the code the headers are for plus interior interfaces eg the internal names and stuff for the code to do stuff dynamically with itself.
+
+You can have multiple rounds of this, with different ways of aggregateing and disaggregating. Some of the transformations require language-aware tools or are not reversable; others (those that are the equivalent of joining archives while maintaining separate sections) are.
+
+Individual sections can be split or joined, but that requires ... (basically can't have inlined across the split; everything must be able to be turned into an exterior interface).
+So must be able to specify and query that kind of thing.
+
+
+For ISAs, should be able to additionally specify things like feature flags. Need to be able to fast query, do function body selection based on, etc etc.
