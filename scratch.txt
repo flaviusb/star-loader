@@ -416,7 +416,7 @@ ISA has registers {sp, rx, mx, rg, r1, r2, r3, ...}...
 - registers used to pass things in
 - registers used to pass thigns out
 ISA has stack/stacks
-- how to get, push, pop, check, etc stack or stacks (as-arch, stack-pointer-register: $reg; grow-direction: $up-or-down; red-zone: $val-or-NA; alloc-more-stack: $details, call-routine $personality)
+- how to get, push, pop, check, etc stack or stacks (as-arch, stack-pointer-register: $reg; grow-direction: $up-or-down; red-zone: $val-or-NA; alloc-more-stack: $details, call-routine $personality, cactus-stack stuff, forth-style-stack stuff)
 
 
 ---
